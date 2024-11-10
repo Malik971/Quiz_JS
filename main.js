@@ -1,14 +1,16 @@
 import "./style.css";
 import { Questions } from "./questions";
 
+let TIMEOUT = 4000;
+
 const app = document.querySelector("#app");
 
-const start = document.querySelector("#start");
+const startButton = document.querySelector("#start");
 
-start.addEventListener("click", StartQuiz);
+startButton.addEventListener("click", StartQuiz);
 
 function StartQuiz(event) {
-  console.log(event);
+  event.stopPropagation(); // modifiaction possible
   let currentQuestion = 0;
   let score = 0;
 
@@ -18,6 +20,8 @@ function StartQuiz(event) {
     while (app.firstElementChild) {
       app.firstElementChild.remove();
     }
+    const progress = getProgressBar(Questions.length, currentQuestion);
+    app.appendChild(progress);
   }
 
   function displayQuestion(index) {
@@ -25,7 +29,8 @@ function StartQuiz(event) {
     const question = Questions[index];
 
     if (!question) {
-      // quiz fini
+      displayFinishMessage();
+      return;
     }
 
     const title = getTitleElement(question.question);
@@ -40,8 +45,19 @@ function StartQuiz(event) {
     app.appendChild(submitButton);
   }
 
+  function displayFinishMessage() {
+    const h1 = document.createElement("h1");
+    h1.innerText = "Le Quiz est terminez !";
+    const p = document.createElement("p");
+    p.innerText = `Tu as eu ${score} sur ${Questions.length} point !`;
+    app.appendChild(h1);
+    app.appendChild(p);
+  }
+
   function submit() {
     const selectedAnswer = app.querySelector('input[name="answer"]:checked');
+
+    disableAllAnswers();
 
     const value = selectedAnswer.value;
 
@@ -54,13 +70,13 @@ function StartQuiz(event) {
     }
 
     showFeedback(isCorrect, question.correct, value);
+    displayNextQuestionButton(() => {
+      currentQuestion++;
+      displayQuestion(currentQuestion);
+    });
+
     const feedback = getFeedbackMassage(isCorrect, question.correct);
     app.appendChild(feedback);
-    
-    setTimeout(() => {
-      currentQuestion++;
-      displayQuestion(currentQuestion)
-    }, 4000)
   }
 
   function createAnswers(answers) {
@@ -84,7 +100,7 @@ function getTitleElement(text) {
 }
 
 function formatId(text) {
-  return text.replaceAll(" ", "-").toLowerCase();
+  return text.replaceAll(" ", "-").replaceAll('"', "'").toLowerCase();
 }
 
 function getAnswerElement(text) {
@@ -120,14 +136,60 @@ function showFeedback(isCorrect, correct, answer) {
 
   correctElement.classList.add("correct");
   selectedElement.classList.add(isCorrect ? "correct" : "incorrect");
-
 }
 
 function getFeedbackMassage(isCorrect, correct) {
   const paragraph = document.createElement("p");
   paragraph.innerText = isCorrect
-  ? "Bravo !"
-  : `Désoler mais la bonne réponse était ${correct}`
+    ? "Bravo tu as eu la bonne réponse !"
+    : `Désoler... mais la bonne réponse était ${correct}`;
 
-  return paragraph
+  return paragraph;
+}
+
+function getProgressBar(max, value) {
+  const progress = document.createElement("progress");
+  progress.setAttribute("max", max);
+  progress.setAttribute("value", value);
+  return progress;
+}
+
+function displayNextQuestionButton(callback) {
+  let remainingTimeout = TIMEOUT;
+
+  app.querySelector("button").remove();
+
+  const getButtonText = () => `Next (${remainingTimeout / 1000}s)`;
+
+  const nextButton = document.createElement("button");
+  nextButton.innerText = getButtonText();
+
+  app.appendChild(nextButton);
+
+  const interval = setInterval(() => {
+    remainingTimeout -= 1000;
+    nextButton.innerText = getButtonText();
+  }, 1000);
+
+  let timeout = setTimeout(() => {
+    handleNextQuestion();
+  }, TIMEOUT);
+
+  const handleNextQuestion = () => {
+    clearInterval(interval);
+    clearTimeout(timeout);
+    callback();
+  };
+
+  nextButton.addEventListener("click", () => {
+    handleNextQuestion();
+  });
+}
+
+function disableAllAnswers() {
+  const radioInputs = document.querySelectorAll('input[type="radio"]');
+
+  for (const radio of radioInputs) {
+    radio.disabled = true;
+  }
 }
